@@ -1104,6 +1104,15 @@ function setupChatCompletionPromptManager(openAiSettings) {
         },
     };
 
+    const editModeToggle = document.getElementById('prompt_manager_edit_mode_toggle');
+    if (editModeToggle) {
+        editModeToggle.addEventListener('change', () => {
+            promptManager.isEditMode = editModeToggle.checked;
+            promptManager.renderPromptManagerListItems();
+            promptManager.renderPromptManager(); // To toggle visibility of batch edit / footers
+        });
+    }
+
     promptManager.saveServiceSettings = () => {
         saveSettingsDebounced();
         return new Promise((resolve) => eventSource.once(event_types.SETTINGS_UPDATED, resolve));

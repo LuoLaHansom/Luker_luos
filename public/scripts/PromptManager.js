@@ -453,6 +453,8 @@ class PromptManager {
         this._groupEditSelection = null;
         this._groupEditCollapsed = new Set();
 
+        this.isEditMode = false;
+
         // Batched toggle undo state
         this.toggleUndoBatch = null;
         this.toggleUndoTimer = null;
@@ -2133,6 +2135,7 @@ class PromptManager {
      * @returns {boolean} True if the prompt can be deleted, false otherwise.
      */
     isPromptDeletionAllowed(prompt) {
+        if (!this.isEditMode) return false;
         return false === prompt.system_prompt;
     }
 
@@ -2142,6 +2145,7 @@ class PromptManager {
      * @returns {boolean} True if the prompt can be edited, false otherwise.
      */
     isPromptEditAllowed(prompt) {
+        if (!this.isEditMode) return false;
         const forceEditPrompts = [
             'charDescription',
             'charPersonality',
@@ -3631,33 +3635,43 @@ class PromptManager {
                 selectedPromptIndex = 0;
             }
 
-            const rangeBlockDiv = promptManagerDiv.querySelector('.range-block');
-            const headerDiv = promptManagerDiv.querySelector('.completion_prompt_manager_header');
-            const footerHtml = await renderTemplateAsync('promptManagerFooter', { promptsHtml, prefix: this.configuration.prefix });
-            headerDiv.insertAdjacentHTML('afterend', footerHtml);
-            rangeBlockDiv.querySelector('#prompt-manager-reset-character').addEventListener('click', this.handleCharacterReset);
+            if (this.isEditMode) {
+                const rangeBlockDiv = promptManagerDiv.querySelector('.range-block');
+                const headerDiv = promptManagerDiv.querySelector('.completion_prompt_manager_header');
+                const footerHtml = await renderTemplateAsync('promptManagerFooter', { promptsHtml, prefix: this.configuration.prefix });
+                headerDiv.insertAdjacentHTML('afterend', footerHtml);
+                rangeBlockDiv.querySelector('#prompt-manager-reset-character').addEventListener('click', this.handleCharacterReset);
 
-            const footerDiv = rangeBlockDiv.querySelector(`.${this.configuration.prefix}prompt_manager_footer`);
-            footerDiv.querySelector('.menu_button:nth-child(2)').addEventListener('click', this.handleAppendPrompt);
-            footerDiv.querySelector('.caution').addEventListener('click', this.handleDeletePrompt);
-            footerDiv.querySelector('.menu_button:last-child').addEventListener('click', this.handleNewPrompt);
-            footerDiv.querySelector('select').selectedIndex = selectedPromptIndex;
+                const footerDiv = rangeBlockDiv.querySelector(`.${this.configuration.prefix}prompt_manager_footer`);
+                footerDiv.querySelector('.menu_button:nth-child(2)').addEventListener('click', this.handleAppendPrompt);
+                footerDiv.querySelector('.caution').addEventListener('click', this.handleDeletePrompt);
+                footerDiv.querySelector('.menu_button:last-child').addEventListener('click', this.handleNewPrompt);
+                footerDiv.querySelector('select').selectedIndex = selectedPromptIndex;
 
-            // Add prompt export dialogue and options
-            footerDiv.querySelector('#prompt-manager-import').addEventListener('click', this.handleImport);
-            footerDiv.querySelector('#prompt-manager-export').addEventListener('click', this.handleFullExport);
+                // Add prompt export dialogue and options
+                footerDiv.querySelector('#prompt-manager-import').addEventListener('click', this.handleImport);
+                footerDiv.querySelector('#prompt-manager-export').addEventListener('click', this.handleFullExport);
+            }
         }
 
         // Bind group edit button in header
         const groupBtn = promptManagerDiv.querySelector(`#${prefix}prompt_manager_group_btn`);
         if (groupBtn) {
-            groupBtn.addEventListener('click', () => {
+            if (this.isEditMode) {
+                groupBtn.style.display = '';
+                groupBtn.addEventListener('click', () => {
+                    if (this._groupEditMode) {
+                        this.exitGroupEditMode();
+                    } else {
+                        this.enterGroupEditMode();
+                    }
+                });
+            } else {
+                groupBtn.style.display = 'none';
                 if (this._groupEditMode) {
                     this.exitGroupEditMode();
-                } else {
-                    this.enterGroupEditMode();
                 }
-            });
+            }
         }
     }
 
@@ -4797,8 +4811,8 @@ class PromptManager {
      * @returns {void}
      */
     makeDraggable() {
-        // Don't enable drag in group edit mode
-        if (this._groupEditMode) return;
+        // Don't enable drag in group edit mode or read-only mode
+        if (this._groupEditMode || !this.isEditMode) return;
 
         const listSelector = `#${this.configuration.prefix}prompt_manager_list`;
 
